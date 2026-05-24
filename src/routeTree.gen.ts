@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedQuickRepliesRouteImport } from './routes/_authenticated/quick-replies'
+import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedFunnelRouteImport } from './routes/_authenticated/funnel'
 import { Route as AuthenticatedFlowsRouteImport } from './routes/_authenticated/flows'
@@ -46,6 +47,11 @@ const AuthenticatedQuickRepliesRoute =
     path: '/quick-replies',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/flows': typeof AuthenticatedFlowsRoute
   '/funnel': typeof AuthenticatedFunnelRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/quick-replies': typeof AuthenticatedQuickRepliesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/public/webhook/evolution': typeof ApiPublicWebhookEvolutionRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/flows': typeof AuthenticatedFlowsRoute
   '/funnel': typeof AuthenticatedFunnelRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/quick-replies': typeof AuthenticatedQuickRepliesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_authenticated/flows': typeof AuthenticatedFlowsRoute
   '/_authenticated/funnel': typeof AuthenticatedFunnelRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
+  '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/quick-replies': typeof AuthenticatedQuickRepliesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/flows'
     | '/funnel'
     | '/inbox'
+    | '/leads'
     | '/quick-replies'
     | '/settings'
     | '/api/public/webhook/evolution'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/flows'
     | '/funnel'
     | '/inbox'
+    | '/leads'
     | '/quick-replies'
     | '/settings'
     | '/'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/_authenticated/flows'
     | '/_authenticated/funnel'
     | '/_authenticated/inbox'
+    | '/_authenticated/leads'
     | '/_authenticated/quick-replies'
     | '/_authenticated/settings'
     | '/_authenticated/'
@@ -197,6 +209,13 @@ declare module '@tanstack/react-router' {
       path: '/quick-replies'
       fullPath: '/quick-replies'
       preLoaderRoute: typeof AuthenticatedQuickRepliesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/leads': {
+      id: '/_authenticated/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof AuthenticatedLeadsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inbox': {
@@ -250,6 +269,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFlowsRoute: typeof AuthenticatedFlowsRoute
   AuthenticatedFunnelRoute: typeof AuthenticatedFunnelRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedQuickRepliesRoute: typeof AuthenticatedQuickRepliesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -261,6 +281,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFlowsRoute: AuthenticatedFlowsRoute,
   AuthenticatedFunnelRoute: AuthenticatedFunnelRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
+  AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedQuickRepliesRoute: AuthenticatedQuickRepliesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
