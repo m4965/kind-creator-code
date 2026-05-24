@@ -102,9 +102,10 @@ function SettingsPage() {
             <Input value={f.evolution_instance} onChange={(e) => setF({ ...f, evolution_instance: e.target.value })} />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <Label>API key</Label>
-            <Input type="password" value={f.evolution_key} onChange={(e) => setF({ ...f, evolution_key: e.target.value })} />
+            <Label>API key {hasEvoKey && <span className="text-xs text-muted-foreground">(salva — deixe em branco para manter)</span>}</Label>
+            <Input type="password" value={f.evolution_key} onChange={(e) => setF({ ...f, evolution_key: e.target.value })} placeholder={hasEvoKey ? "••••••••" : ""} />
           </div>
+
         </CardContent>
       </Card>
 
