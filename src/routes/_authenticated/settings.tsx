@@ -113,9 +113,10 @@ function SettingsPage() {
         <CardHeader><CardTitle className="text-base">Groq IA</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1 md:col-span-2">
-            <Label>API key</Label>
-            <Input type="password" value={f.groq_key} onChange={(e) => setF({ ...f, groq_key: e.target.value })} />
+            <Label>API key {hasGroqKey && <span className="text-xs text-muted-foreground">(salva — deixe em branco para manter)</span>}</Label>
+            <Input type="password" value={f.groq_key} onChange={(e) => setF({ ...f, groq_key: e.target.value })} placeholder={hasGroqKey ? "••••••••" : ""} />
           </div>
+
           <div className="space-y-1">
             <Label>Modelo de texto</Label>
             <Input value={f.groq_model} onChange={(e) => setF({ ...f, groq_model: e.target.value })} />
