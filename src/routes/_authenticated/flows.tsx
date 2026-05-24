@@ -366,10 +366,10 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
             <MiniMap
               pannable
               zoomable
-              style={{ background: "hsl(var(--card))" }}
-              maskColor="rgba(0,0,0,0.6)"
-              nodeColor={() => "hsl(var(--primary))"}
-              nodeStrokeColor="hsl(var(--border))"
+              style={{ background: "#0b0b0f" }}
+              maskColor="rgba(0,0,0,0.7)"
+              nodeColor="#f59e0b"
+              nodeStrokeColor="#1f2937"
             />
           </ReactFlow>
         </div>
