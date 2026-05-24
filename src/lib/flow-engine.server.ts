@@ -163,6 +163,19 @@ Considere approved=true somente se: for claramente um comprovante real, tiver va
         extracted: extracted as any,
         media_url: ctx.mediaUrl,
       });
+      if (approved) {
+        const successMsg = d.success_message || "✅ Pagamento confirmado! Segue o acesso ao seu produto:";
+        await evoSendText(ctx.settings, ctx.contactPhone, successMsg);
+        await saveAssistant(ctx, successMsg);
+        if (d.pdf_url) {
+          await evoSendMedia(ctx.settings, ctx.contactPhone, "document", d.pdf_url, "Seu material");
+          await saveAssistant(ctx, "Seu material", "document", d.pdf_url);
+        }
+        if (d.link) {
+          await evoSendText(ctx.settings, ctx.contactPhone, d.link);
+          await saveAssistant(ctx, d.link);
+        }
+      }
       return approved ? "approved" : "rejected";
     }
     case "moveFunnel": {
