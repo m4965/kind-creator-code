@@ -35,16 +35,20 @@ function SettingsPage() {
   useEffect(() => {
     if (data) setF((p) => ({
       ...p,
-      evolution_url: data.evolution_url ?? "",
-      evolution_instance: data.evolution_instance ?? "",
-      evolution_key: data.evolution_key ?? "",
-      groq_key: data.groq_key ?? "",
-      groq_model: data.groq_model ?? p.groq_model,
-      groq_audio_model: data.groq_audio_model ?? p.groq_audio_model,
-      groq_vision_model: data.groq_vision_model ?? p.groq_vision_model,
-      system_prompt: data.system_prompt ?? "",
+      evolution_url: (data as any).evolution_url ?? "",
+      evolution_instance: (data as any).evolution_instance ?? "",
+      evolution_key: "",
+      groq_key: "",
+      groq_model: (data as any).groq_model ?? p.groq_model,
+      groq_audio_model: (data as any).groq_audio_model ?? p.groq_audio_model,
+      groq_vision_model: (data as any).groq_vision_model ?? p.groq_vision_model,
+      system_prompt: (data as any).system_prompt ?? "",
     }));
   }, [data]);
+
+  const hasEvoKey = Boolean((data as any)?.has_evolution_key);
+  const hasGroqKey = Boolean((data as any)?.has_groq_key);
+
 
   const webhookUrl =
     typeof window !== "undefined" && data
@@ -98,9 +102,10 @@ function SettingsPage() {
             <Input value={f.evolution_instance} onChange={(e) => setF({ ...f, evolution_instance: e.target.value })} />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <Label>API key</Label>
-            <Input type="password" value={f.evolution_key} onChange={(e) => setF({ ...f, evolution_key: e.target.value })} />
+            <Label>API key {hasEvoKey && <span className="text-xs text-muted-foreground">(salva — deixe em branco para manter)</span>}</Label>
+            <Input type="password" value={f.evolution_key} onChange={(e) => setF({ ...f, evolution_key: e.target.value })} placeholder={hasEvoKey ? "••••••••" : ""} />
           </div>
+
         </CardContent>
       </Card>
 
@@ -108,9 +113,10 @@ function SettingsPage() {
         <CardHeader><CardTitle className="text-base">Groq IA</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1 md:col-span-2">
-            <Label>API key</Label>
-            <Input type="password" value={f.groq_key} onChange={(e) => setF({ ...f, groq_key: e.target.value })} />
+            <Label>API key {hasGroqKey && <span className="text-xs text-muted-foreground">(salva — deixe em branco para manter)</span>}</Label>
+            <Input type="password" value={f.groq_key} onChange={(e) => setF({ ...f, groq_key: e.target.value })} placeholder={hasGroqKey ? "••••••••" : ""} />
           </div>
+
           <div className="space-y-1">
             <Label>Modelo de texto</Label>
             <Input value={f.groq_model} onChange={(e) => setF({ ...f, groq_model: e.target.value })} />
