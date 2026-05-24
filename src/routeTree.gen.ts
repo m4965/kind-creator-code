@@ -12,9 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedQuickRepliesRouteImport } from './routes/_authenticated/quick-replies'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
+import { Route as AuthenticatedFunnelRouteImport } from './routes/_authenticated/funnel'
 import { Route as AuthenticatedFlowsRouteImport } from './routes/_authenticated/flows'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
+import { Route as AuthenticatedFlowsIdRouteImport } from './routes/_authenticated/flows.$id'
 import { Route as ApiPublicWebhookEvolutionRouteImport } from './routes/api/public/webhook/evolution'
 
 const LoginRoute = LoginRouteImport.update({
@@ -31,9 +36,25 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedQuickRepliesRoute =
+  AuthenticatedQuickRepliesRouteImport.update({
+    id: '/quick-replies',
+    path: '/quick-replies',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedFunnelRoute = AuthenticatedFunnelRouteImport.update({
+  id: '/funnel',
+  path: '/funnel',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedFlowsRoute = AuthenticatedFlowsRouteImport.update({
@@ -46,6 +67,16 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedContactsRoute = AuthenticatedContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedFlowsIdRoute = AuthenticatedFlowsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthenticatedFlowsRoute,
+} as any)
 const ApiPublicWebhookEvolutionRoute =
   ApiPublicWebhookEvolutionRouteImport.update({
     id: '/api/public/webhook/evolution',
@@ -56,17 +87,27 @@ const ApiPublicWebhookEvolutionRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/contacts': typeof AuthenticatedContactsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/flows': typeof AuthenticatedFlowsRoute
+  '/flows': typeof AuthenticatedFlowsRouteWithChildren
+  '/funnel': typeof AuthenticatedFunnelRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/quick-replies': typeof AuthenticatedQuickRepliesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/flows/$id': typeof AuthenticatedFlowsIdRoute
   '/api/public/webhook/evolution': typeof ApiPublicWebhookEvolutionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/contacts': typeof AuthenticatedContactsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/flows': typeof AuthenticatedFlowsRoute
+  '/flows': typeof AuthenticatedFlowsRouteWithChildren
+  '/funnel': typeof AuthenticatedFunnelRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/quick-replies': typeof AuthenticatedQuickRepliesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/flows/$id': typeof AuthenticatedFlowsIdRoute
   '/api/public/webhook/evolution': typeof ApiPublicWebhookEvolutionRoute
 }
 export interface FileRoutesById {
@@ -74,9 +115,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/contacts': typeof AuthenticatedContactsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/flows': typeof AuthenticatedFlowsRoute
+  '/_authenticated/flows': typeof AuthenticatedFlowsRouteWithChildren
+  '/_authenticated/funnel': typeof AuthenticatedFunnelRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
+  '/_authenticated/quick-replies': typeof AuthenticatedQuickRepliesRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/flows/$id': typeof AuthenticatedFlowsIdRoute
   '/api/public/webhook/evolution': typeof ApiPublicWebhookEvolutionRoute
 }
 export interface FileRouteTypes {
@@ -84,26 +130,41 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/contacts'
     | '/dashboard'
     | '/flows'
+    | '/funnel'
     | '/inbox'
+    | '/quick-replies'
+    | '/settings'
+    | '/flows/$id'
     | '/api/public/webhook/evolution'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
+    | '/contacts'
     | '/dashboard'
     | '/flows'
+    | '/funnel'
     | '/inbox'
+    | '/quick-replies'
+    | '/settings'
+    | '/flows/$id'
     | '/api/public/webhook/evolution'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/contacts'
     | '/_authenticated/dashboard'
     | '/_authenticated/flows'
+    | '/_authenticated/funnel'
     | '/_authenticated/inbox'
+    | '/_authenticated/quick-replies'
+    | '/_authenticated/settings'
+    | '/_authenticated/flows/$id'
     | '/api/public/webhook/evolution'
   fileRoutesById: FileRoutesById
 }
@@ -137,11 +198,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/quick-replies': {
+      id: '/_authenticated/quick-replies'
+      path: '/quick-replies'
+      fullPath: '/quick-replies'
+      preLoaderRoute: typeof AuthenticatedQuickRepliesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inbox': {
       id: '/_authenticated/inbox'
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AuthenticatedInboxRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/funnel': {
+      id: '/_authenticated/funnel'
+      path: '/funnel'
+      fullPath: '/funnel'
+      preLoaderRoute: typeof AuthenticatedFunnelRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/flows': {
@@ -158,6 +240,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/contacts': {
+      id: '/_authenticated/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof AuthenticatedContactsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/flows/$id': {
+      id: '/_authenticated/flows/$id'
+      path: '/$id'
+      fullPath: '/flows/$id'
+      preLoaderRoute: typeof AuthenticatedFlowsIdRouteImport
+      parentRoute: typeof AuthenticatedFlowsRoute
+    }
     '/api/public/webhook/evolution': {
       id: '/api/public/webhook/evolution'
       path: '/api/public/webhook/evolution'
@@ -168,16 +264,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedFlowsRouteChildren {
+  AuthenticatedFlowsIdRoute: typeof AuthenticatedFlowsIdRoute
+}
+
+const AuthenticatedFlowsRouteChildren: AuthenticatedFlowsRouteChildren = {
+  AuthenticatedFlowsIdRoute: AuthenticatedFlowsIdRoute,
+}
+
+const AuthenticatedFlowsRouteWithChildren =
+  AuthenticatedFlowsRoute._addFileChildren(AuthenticatedFlowsRouteChildren)
+
 interface AuthenticatedRouteChildren {
+  AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedFlowsRoute: typeof AuthenticatedFlowsRoute
+  AuthenticatedFlowsRoute: typeof AuthenticatedFlowsRouteWithChildren
+  AuthenticatedFunnelRoute: typeof AuthenticatedFunnelRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedQuickRepliesRoute: typeof AuthenticatedQuickRepliesRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedContactsRoute: AuthenticatedContactsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedFlowsRoute: AuthenticatedFlowsRoute,
+  AuthenticatedFlowsRoute: AuthenticatedFlowsRouteWithChildren,
+  AuthenticatedFunnelRoute: AuthenticatedFunnelRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
+  AuthenticatedQuickRepliesRoute: AuthenticatedQuickRepliesRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
