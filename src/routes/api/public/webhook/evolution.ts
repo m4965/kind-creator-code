@@ -102,7 +102,7 @@ export const Route = createFileRoute("/api/public/webhook/evolution")({
             const buf = await downloadMedia(mediaUrl as string);
             transcript = await groqTranscribe(
               settings.groq_key,
-              settings.groq_audio_model,
+              settings.groq_audio_model ?? "whisper-large-v3-turbo",
               buf,
               "audio.ogg",
             );
@@ -171,8 +171,8 @@ export const Route = createFileRoute("/api/public/webhook/evolution")({
               content: m.transcript || m.content || `[${m.type}]`,
             }));
           try {
-            const reply = await groqChat(settings.groq_key, settings.groq_model, [
-              { role: "system", content: settings.system_prompt },
+            const reply = await groqChat(settings.groq_key, settings.groq_model ?? "llama-3.3-70b-versatile", [
+              { role: "system", content: settings.system_prompt ?? "" },
               ...history,
             ]);
             await evoSendText(settings as any, phone, reply ?? "");
