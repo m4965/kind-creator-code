@@ -99,7 +99,7 @@ export const Route = createFileRoute("/api/public/webhook/evolution")({
         let transcript: string | null = null;
         if (type === "audio" && mediaUrl && settings.groq_key) {
           try {
-            const buf = await downloadMedia(mediaUrl);
+            const buf = await downloadMedia(mediaUrl as string);
             transcript = await groqTranscribe(
               settings.groq_key,
               settings.groq_audio_model,
@@ -175,7 +175,7 @@ export const Route = createFileRoute("/api/public/webhook/evolution")({
               { role: "system", content: settings.system_prompt },
               ...history,
             ]);
-            await evoSendText(settings as any, phone, reply);
+            await evoSendText(settings as any, phone, reply ?? "");
             await supabaseAdmin.from("messages").insert({
               user_id: userId,
               conversation_id: conv.id,

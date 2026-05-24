@@ -40,7 +40,7 @@ function nextNodes(current: string, edges: FlowEdge[], handle?: string | null): 
     .map((e) => e.target);
 }
 
-async function saveAssistant(ctx: Ctx, content: string, type = "text", mediaUrl?: string) {
+async function saveAssistant(ctx: Ctx, content: string, type: "text" | "image" | "audio" | "video" | "document" = "text", mediaUrl?: string) {
   await supabaseAdmin.from("messages").insert({
     user_id: ctx.userId,
     conversation_id: ctx.conversationId,
@@ -160,7 +160,7 @@ Considere approved=true somente se: for claramente um comprovante real, tiver va
         message_id: ctx.messageId,
         status: approved ? "confirmed" : "rejected",
         amount: typeof extracted.amount === "number" ? extracted.amount : null,
-        extracted,
+        extracted: extracted as any,
         media_url: ctx.mediaUrl,
       });
       return approved ? "approved" : "rejected";
