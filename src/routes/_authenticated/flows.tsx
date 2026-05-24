@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -18,15 +18,20 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { listFlows, getFlow, saveFlow, deleteFlow } from "@/lib/flows.functions";
+import { getSettings, saveSettings } from "@/lib/settings.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import {
   Plus, Trash2, Zap, MessageSquare, Image as ImgIcon, Mic, Video, Brain, CreditCard, GitBranch, Filter,
+  Search, Edit3, ArrowLeft, Bot, Star,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/flows")({
@@ -40,7 +45,7 @@ const NODE_TYPES_LIST = [
   { key: "sendAudio", label: "Enviar áudio", icon: Mic, color: "bg-purple-500", defaultData: { url: "" } },
   { key: "sendVideo", label: "Enviar vídeo", icon: Video, color: "bg-red-500", defaultData: { url: "", caption: "" } },
   { key: "ai", label: "Resposta IA", icon: Brain, color: "bg-emerald-500", defaultData: { prompt: "" } },
-  { key: "payment", label: "Confirmar pagamento", icon: CreditCard, color: "bg-green-600", defaultData: {} },
+  { key: "payment", label: "Confirmar pagamento", icon: CreditCard, color: "bg-green-600", defaultData: { pdf_url: "", link: "", success_message: "" } },
   { key: "condition", label: "Condição", icon: GitBranch, color: "bg-yellow-600", defaultData: { contains: "" } },
   { key: "moveFunnel", label: "Mover no funil", icon: Filter, color: "bg-indigo-500", defaultData: { stage_id: "" } },
 ] as const;
@@ -57,7 +62,7 @@ function NodeShell({ data, type, selected }: any) {
         <span className="text-sm font-medium">{meta.label}</span>
       </div>
       <div className="px-3 py-2 text-xs text-muted-foreground line-clamp-2">
-        {data.text || data.prompt || data.contains || data.caption || "—"}
+        {data.text || data.prompt || data.contains || data.caption || data.pdf_url || data.link || "—"}
       </div>
       {type === "payment" ? (
         <>
@@ -81,9 +86,9 @@ const nodeTypes = Object.fromEntries(NODE_TYPES_LIST.map((n) => [n.key, NodeShel
 function buildExampleFlow() {
   return {
     nodes: [
-      { id: "trigger_1", type: "trigger", position: { x: 40, y: 120 }, data: {} },
-      { id: "sendText_1", type: "sendText", position: { x: 290, y: 60 }, data: { text: "Olá! 👋 Como posso te ajudar hoje?" } },
-      { id: "ai_1", type: "ai", position: { x: 290, y: 220 }, data: { prompt: "Você é um atendente cordial. Responda em português, curto e útil." } },
+      { id: "trigger_1", type: "trigger", position: { x: 40, y: 160 }, data: {} },
+      { id: "sendText_1", type: "sendText", position: { x: 290, y: 60 }, data: { text: "Olá! 👋 Sou o atendente virtual. Como posso te ajudar hoje?" } },
+      { id: "ai_1", type: "ai", position: { x: 290, y: 260 }, data: { prompt: "" } },
     ],
     edges: [
       { id: "e1", source: "trigger_1", target: "sendText_1", animated: true },
@@ -100,20 +105,17 @@ function FlowsPage() {
   const { data: flows } = useQuery({ queryKey: ["flows"], queryFn: () => listFn() });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!selectedId && flows && flows.length > 0) setSelectedId((flows[0] as any).id);
-  }, [flows, selectedId]);
+  const [search, setSearch] = useState("");
 
   async function createFlow() {
     const example = buildExampleFlow();
     const res = await saveFn({
       data: {
-        name: "Novo fluxo",
+        name: "Novo fluxo de atendimento",
         description: "",
         active: false,
-        trigger_type: "keyword",
-        trigger_keywords: ["oi", "olá", "ola"],
+        trigger_type: "any",
+        trigger_keywords: [],
         nodes: example.nodes as any,
         edges: example.edges as any,
       },
@@ -123,62 +125,115 @@ function FlowsPage() {
     toast.success("Fluxo criado com exemplo pronto");
   }
 
+  if (selectedId) {
+    return <FlowEditor key={selectedId} id={selectedId} onBack={() => setSelectedId(null)} />;
+  }
+
+  const filtered = (flows ?? []).filter((f: any) =>
+    f.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
-    <div className="flex h-[calc(100vh-3rem)]">
-      {/* Left: list */}
-      <aside className="flex w-64 flex-col border-r border-border">
-        <div className="flex items-center justify-between border-b border-border p-3">
-          <div className="font-semibold">Fluxos</div>
-          <Button size="sm" onClick={createFlow}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Novo
-          </Button>
+    <div className="p-6">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Fluxos</h1>
+          <p className="text-sm text-muted-foreground">
+            {(flows ?? []).length} {(flows ?? []).length === 1 ? "fluxo criado" : "fluxos criados"}
+          </p>
         </div>
-        <div className="flex-1 overflow-y-auto p-2">
-          {(flows ?? []).length === 0 && (
-            <p className="px-2 py-4 text-xs text-muted-foreground">Crie seu primeiro fluxo.</p>
-          )}
-          {(flows ?? []).map((f: any) => (
-            <button
+        <Button onClick={createFlow}>
+          <Plus className="mr-1 h-4 w-4" /> Novo fluxo
+        </Button>
+      </div>
+
+      <div className="relative mt-6">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar fluxos..."
+          className="pl-9"
+        />
+      </div>
+
+      <div className="mt-6 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <Star className="h-3.5 w-3.5 text-amber-500" />
+        MEUS FLUXOS
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card className="mt-3 p-10 text-center text-sm text-muted-foreground">
+          Nenhum fluxo ainda. Clique em <strong>Novo fluxo</strong> para começar com um exemplo pronto.
+        </Card>
+      ) : (
+        <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((f: any) => (
+            <FlowCard
               key={f.id}
-              onClick={() => setSelectedId(f.id)}
-              className={`group flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm hover:bg-muted ${
-                selectedId === f.id ? "bg-muted" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2 truncate">
-                <span className={`h-2 w-2 rounded-full ${f.active ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-                <span className="truncate">{f.name}</span>
-              </span>
-              <Trash2
-                className="hidden h-3.5 w-3.5 text-muted-foreground hover:text-destructive group-hover:block"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  if (!confirm("Excluir fluxo?")) return;
-                  await delFn({ data: { id: f.id } });
-                  if (selectedId === f.id) setSelectedId(null);
-                  qc.invalidateQueries({ queryKey: ["flows"] });
-                }}
-              />
-            </button>
+              flow={f}
+              onEdit={() => setSelectedId(f.id)}
+              onDelete={async () => {
+                if (!confirm("Excluir fluxo?")) return;
+                await delFn({ data: { id: f.id } });
+                qc.invalidateQueries({ queryKey: ["flows"] });
+              }}
+            />
           ))}
         </div>
-      </aside>
-
-      {/* Right: editor */}
-      <div className="flex flex-1 flex-col">
-        {selectedId ? (
-          <FlowEditor key={selectedId} id={selectedId} />
-        ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            Selecione ou crie um fluxo.
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
-function FlowEditor({ id }: { id: string }) {
+function FlowCard({ flow, onEdit, onDelete }: { flow: any; onEdit: () => void; onDelete: () => void }) {
+  const nodes = Array.isArray(flow.nodes) ? flow.nodes.length : 0;
+  const edges = Array.isArray(flow.edges) ? flow.edges.length : 0;
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="flex items-start justify-between gap-3 border-b border-border p-4">
+        <div className="flex items-start gap-2 min-w-0">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-500">
+            <Zap className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="truncate font-medium">{flow.name}</div>
+              {!flow.active && <Badge variant="destructive" className="text-[10px]">INATIVO</Badge>}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {flow.trigger_type === "any" ? "Qualquer mensagem" : (flow.trigger_keywords ?? []).join(", ") || "Sem gatilho"}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 p-4">
+        <Stat label="Blocos" value={nodes} />
+        <Stat label="Conexões" value={edges} />
+        <Stat label="Ativo" value={flow.active ? "Sim" : "Não"} />
+      </div>
+      <div className="flex items-center gap-2 border-t border-border p-3">
+        <Button className="flex-1 bg-amber-500 text-black hover:bg-amber-400" onClick={onEdit}>
+          <Edit3 className="mr-1 h-4 w-4" /> Editar
+        </Button>
+        <Button variant="destructive" size="icon" onClick={onDelete}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-2 text-center">
+      <div className="text-lg font-semibold">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
   const qc = useQueryClient();
   const getFn = useServerFn(getFlow);
   const saveFn = useServerFn(saveFlow);
@@ -248,8 +303,11 @@ function FlowEditor({ id }: { id: string }) {
   }
 
   return (
-    <>
+    <div className="flex h-[calc(100vh-3rem)] flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-border p-3">
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
+        </Button>
         <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-xs" />
         <Select value={triggerType} onValueChange={(v) => setTriggerType(v as any)}>
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
@@ -267,6 +325,7 @@ function FlowEditor({ id }: { id: string }) {
           />
         )}
         <div className="ml-auto flex items-center gap-3">
+          <AgentSheet />
           <Label className="flex items-center gap-2 text-sm">
             Ativo <Switch checked={active} onCheckedChange={setActive} />
           </Label>
@@ -289,7 +348,7 @@ function FlowEditor({ id }: { id: string }) {
             </button>
           ))}
         </div>
-        <div className="flex-1">
+        <div className="flex-1 bg-muted/20">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -300,10 +359,18 @@ function FlowEditor({ id }: { id: string }) {
             onNodeClick={(_, n) => setSelected(n)}
             onPaneClick={() => setSelected(null)}
             fitView
+            colorMode="dark"
           >
             <Background />
             <Controls />
-            <MiniMap />
+            <MiniMap
+              pannable
+              zoomable
+              style={{ background: "#0b0b0f" }}
+              maskColor="rgba(0,0,0,0.7)"
+              nodeColor="#f59e0b"
+              nodeStrokeColor="#1f2937"
+            />
           </ReactFlow>
         </div>
         {selected && (
@@ -326,7 +393,74 @@ function FlowEditor({ id }: { id: string }) {
           </div>
         )}
       </div>
-    </>
+    </div>
+  );
+}
+
+function AgentSheet() {
+  const getFn = useServerFn(getSettings);
+  const saveFn = useServerFn(saveSettings);
+  const qc = useQueryClient();
+  const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => getFn() });
+  const [prompt, setPrompt] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (settings) setPrompt((settings as any).system_prompt ?? "");
+  }, [settings]);
+
+  async function save() {
+    await saveFn({
+      data: {
+        evolution_url: (settings as any)?.evolution_url ?? "",
+        evolution_instance: (settings as any)?.evolution_instance ?? "",
+        groq_model: (settings as any)?.groq_model ?? "llama-3.3-70b-versatile",
+        groq_audio_model: (settings as any)?.groq_audio_model ?? "whisper-large-v3-turbo",
+        groq_vision_model: (settings as any)?.groq_vision_model ?? "meta-llama/llama-4-scout-17b-16e-instruct",
+        system_prompt: prompt,
+      },
+    });
+    await qc.invalidateQueries({ queryKey: ["settings"] });
+    toast.success("Agente atualizado");
+    setOpen(false);
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Bot className="mr-1 h-4 w-4" /> Agente IA
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Instruções do agente IA</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Este prompt é usado por todos os nós de IA que não tiverem instrução própria.
+            Descreva seu produto, tom de voz, regras de venda, perguntas frequentes e o que a IA
+            deve ou não responder. Quanto mais específico, melhor.
+          </p>
+          <Label>Prompt principal do agente</Label>
+          <Textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={20}
+            placeholder={`Você é o atendente virtual da [SUA EMPRESA].
+
+PRODUTO: descreva o que vende, preço, formas de pagamento.
+TOM: cordial, objetivo, em português, mensagens curtas.
+REGRAS:
+- Nunca invente preços.
+- Se o cliente pedir desconto, ofereça no máximo 10%.
+- Se não souber algo, peça para aguardar e diga que um humano vai responder.
+- Após a venda, envie o link/PDF do produto.`}
+          />
+          <Button onClick={save} className="w-full">Salvar agente</Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -362,8 +496,16 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
     case "ai":
       return (
         <div className="space-y-2">
-          <Label>Prompt da IA (vazio = usa o padrão das Configurações)</Label>
-          <Textarea value={d.prompt ?? ""} onChange={(e) => onChange({ prompt: e.target.value })} rows={6} />
+          <Label>Prompt da IA (vazio = usa o Agente IA)</Label>
+          <Textarea
+            value={d.prompt ?? ""}
+            onChange={(e) => onChange({ prompt: e.target.value })}
+            rows={8}
+            placeholder="Ex.: Responda dúvidas sobre o produto X. Se o cliente quiser comprar, peça nome e CEP."
+          />
+          <p className="text-xs text-muted-foreground">
+            Dica: deixe vazio para herdar o prompt principal do Agente IA (botão no topo).
+          </p>
         </div>
       );
     case "condition":
@@ -376,9 +518,30 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
       );
     case "payment":
       return (
-        <p className="text-xs text-muted-foreground">
-          Quando o contato enviar uma imagem/PDF, a IA analisa o comprovante. Saída verde = aprovado, vermelha = rejeitado.
-        </p>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Quando o contato enviar comprovante, a IA analisa. Se aprovado, envia os arquivos/links abaixo.
+          </p>
+          <Label>Mensagem ao aprovar</Label>
+          <Textarea
+            value={d.success_message ?? ""}
+            onChange={(e) => onChange({ success_message: e.target.value })}
+            rows={3}
+            placeholder="Pagamento confirmado! Segue o acesso ao seu produto:"
+          />
+          <Label>URL do PDF / arquivo</Label>
+          <Input
+            value={d.pdf_url ?? ""}
+            onChange={(e) => onChange({ pdf_url: e.target.value })}
+            placeholder="https://.../arquivo.pdf"
+          />
+          <Label>Link de acesso</Label>
+          <Input
+            value={d.link ?? ""}
+            onChange={(e) => onChange({ link: e.target.value })}
+            placeholder="https://..."
+          />
+        </div>
       );
     case "moveFunnel":
       return (
