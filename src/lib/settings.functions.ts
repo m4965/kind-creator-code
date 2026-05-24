@@ -44,7 +44,7 @@ export const saveSettings = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { userId } = context;
     // Only overwrite secret keys when a non-empty value is provided
-    const patch: Record<string, unknown> = {
+    const patch: any = {
       user_id: userId,
       evolution_url: data.evolution_url,
       evolution_instance: data.evolution_instance,
@@ -60,3 +60,4 @@ export const saveSettings = createServerFn({ method: "POST" })
     await supabaseAdmin.from("settings").upsert(patch, { onConflict: "user_id" });
     return { ok: true };
   });
+
