@@ -14,12 +14,12 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedQuickRepliesRouteImport } from './routes/_authenticated/quick-replies'
+import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedFunnelRouteImport } from './routes/_authenticated/funnel'
 import { Route as AuthenticatedFlowsRouteImport } from './routes/_authenticated/flows'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
-import { Route as AuthenticatedFlowsIdRouteImport } from './routes/_authenticated/flows.$id'
 import { Route as ApiPublicWebhookEvolutionRouteImport } from './routes/api/public/webhook/evolution'
 
 const LoginRoute = LoginRouteImport.update({
@@ -47,6 +47,11 @@ const AuthenticatedQuickRepliesRoute =
     path: '/quick-replies',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -72,11 +77,6 @@ const AuthenticatedContactsRoute = AuthenticatedContactsRouteImport.update({
   path: '/contacts',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedFlowsIdRoute = AuthenticatedFlowsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthenticatedFlowsRoute,
-} as any)
 const ApiPublicWebhookEvolutionRoute =
   ApiPublicWebhookEvolutionRouteImport.update({
     id: '/api/public/webhook/evolution',
@@ -89,25 +89,25 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/flows': typeof AuthenticatedFlowsRouteWithChildren
+  '/flows': typeof AuthenticatedFlowsRoute
   '/funnel': typeof AuthenticatedFunnelRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/quick-replies': typeof AuthenticatedQuickRepliesRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/flows/$id': typeof AuthenticatedFlowsIdRoute
   '/api/public/webhook/evolution': typeof ApiPublicWebhookEvolutionRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/flows': typeof AuthenticatedFlowsRouteWithChildren
+  '/flows': typeof AuthenticatedFlowsRoute
   '/funnel': typeof AuthenticatedFunnelRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/quick-replies': typeof AuthenticatedQuickRepliesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
-  '/flows/$id': typeof AuthenticatedFlowsIdRoute
   '/api/public/webhook/evolution': typeof ApiPublicWebhookEvolutionRoute
 }
 export interface FileRoutesById {
@@ -116,13 +116,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/contacts': typeof AuthenticatedContactsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/flows': typeof AuthenticatedFlowsRouteWithChildren
+  '/_authenticated/flows': typeof AuthenticatedFlowsRoute
   '/_authenticated/funnel': typeof AuthenticatedFunnelRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
+  '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/quick-replies': typeof AuthenticatedQuickRepliesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/flows/$id': typeof AuthenticatedFlowsIdRoute
   '/api/public/webhook/evolution': typeof ApiPublicWebhookEvolutionRoute
 }
 export interface FileRouteTypes {
@@ -135,9 +135,9 @@ export interface FileRouteTypes {
     | '/flows'
     | '/funnel'
     | '/inbox'
+    | '/leads'
     | '/quick-replies'
     | '/settings'
-    | '/flows/$id'
     | '/api/public/webhook/evolution'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -147,10 +147,10 @@ export interface FileRouteTypes {
     | '/flows'
     | '/funnel'
     | '/inbox'
+    | '/leads'
     | '/quick-replies'
     | '/settings'
     | '/'
-    | '/flows/$id'
     | '/api/public/webhook/evolution'
   id:
     | '__root__'
@@ -161,10 +161,10 @@ export interface FileRouteTypes {
     | '/_authenticated/flows'
     | '/_authenticated/funnel'
     | '/_authenticated/inbox'
+    | '/_authenticated/leads'
     | '/_authenticated/quick-replies'
     | '/_authenticated/settings'
     | '/_authenticated/'
-    | '/_authenticated/flows/$id'
     | '/api/public/webhook/evolution'
   fileRoutesById: FileRoutesById
 }
@@ -211,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuickRepliesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/leads': {
+      id: '/_authenticated/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof AuthenticatedLeadsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inbox': {
       id: '/_authenticated/inbox'
       path: '/inbox'
@@ -246,13 +253,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContactsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/flows/$id': {
-      id: '/_authenticated/flows/$id'
-      path: '/$id'
-      fullPath: '/flows/$id'
-      preLoaderRoute: typeof AuthenticatedFlowsIdRouteImport
-      parentRoute: typeof AuthenticatedFlowsRoute
-    }
     '/api/public/webhook/evolution': {
       id: '/api/public/webhook/evolution'
       path: '/api/public/webhook/evolution'
@@ -263,23 +263,13 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedFlowsRouteChildren {
-  AuthenticatedFlowsIdRoute: typeof AuthenticatedFlowsIdRoute
-}
-
-const AuthenticatedFlowsRouteChildren: AuthenticatedFlowsRouteChildren = {
-  AuthenticatedFlowsIdRoute: AuthenticatedFlowsIdRoute,
-}
-
-const AuthenticatedFlowsRouteWithChildren =
-  AuthenticatedFlowsRoute._addFileChildren(AuthenticatedFlowsRouteChildren)
-
 interface AuthenticatedRouteChildren {
   AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedFlowsRoute: typeof AuthenticatedFlowsRouteWithChildren
+  AuthenticatedFlowsRoute: typeof AuthenticatedFlowsRoute
   AuthenticatedFunnelRoute: typeof AuthenticatedFunnelRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedQuickRepliesRoute: typeof AuthenticatedQuickRepliesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -288,9 +278,10 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedContactsRoute: AuthenticatedContactsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedFlowsRoute: AuthenticatedFlowsRouteWithChildren,
+  AuthenticatedFlowsRoute: AuthenticatedFlowsRoute,
   AuthenticatedFunnelRoute: AuthenticatedFunnelRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
+  AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedQuickRepliesRoute: AuthenticatedQuickRepliesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
@@ -308,13 +299,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -68,6 +68,10 @@ export const Route = createFileRoute("/api/public/webhook/evolution")({
           .eq("user_id", userId)
           .maybeSingle();
         if (!settings) return new Response("no settings", { status: 404 });
+        // Fallback global Groq key from environment if user hasn't set their own
+        if (!settings.groq_key && process.env.GROQ_API_KEY) {
+          (settings as any).groq_key = process.env.GROQ_API_KEY;
+        }
 
         // upsert contact
         const { data: contact } = await supabaseAdmin
