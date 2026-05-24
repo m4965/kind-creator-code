@@ -33,7 +33,17 @@ function SettingsPage() {
   });
 
   useEffect(() => {
-    if (data) setF((p) => ({ ...p, ...data }));
+    if (data) setF((p) => ({
+      ...p,
+      evolution_url: data.evolution_url ?? "",
+      evolution_instance: data.evolution_instance ?? "",
+      evolution_key: data.evolution_key ?? "",
+      groq_key: data.groq_key ?? "",
+      groq_model: data.groq_model ?? p.groq_model,
+      groq_audio_model: data.groq_audio_model ?? p.groq_audio_model,
+      groq_vision_model: data.groq_vision_model ?? p.groq_vision_model,
+      system_prompt: data.system_prompt ?? "",
+    }));
   }, [data]);
 
   const webhookUrl =

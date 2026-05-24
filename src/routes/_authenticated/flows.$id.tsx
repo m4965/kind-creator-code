@@ -99,8 +99,8 @@ function FlowEditor() {
     setActive(flow.active);
     setTriggerType((flow.trigger_type as any) ?? "keyword");
     setKeywords((flow.trigger_keywords ?? []).join(", "));
-    setNodes((flow.nodes as Node[]) ?? []);
-    setEdges((flow.edges as Edge[]) ?? []);
+    setNodes(((flow.nodes as unknown) as Node[]) ?? []);
+    setEdges(((flow.edges as unknown) as Edge[]) ?? []);
   }, [flow, setNodes, setEdges]);
 
   const onConnect = useCallback(
