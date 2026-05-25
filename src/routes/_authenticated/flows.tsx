@@ -239,12 +239,15 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
   const qc = useQueryClient();
   const getFn = useServerFn(getFlow);
   const saveFn = useServerFn(saveFlow);
+  const listSessFn = useServerFn(listSessions);
   const { data: flow } = useQuery({ queryKey: ["flow", id], queryFn: () => getFn({ data: { id } }) });
+  const { data: sessions } = useQuery({ queryKey: ["sessions"], queryFn: () => listSessFn() });
 
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
   const [triggerType, setTriggerType] = useState<"keyword" | "any">("keyword");
   const [keywords, setKeywords] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selected, setSelected] = useState<Node | null>(null);
@@ -255,6 +258,7 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
     setActive(flow.active);
     setTriggerType((flow.trigger_type as any) ?? "keyword");
     setKeywords((flow.trigger_keywords ?? []).join(", "));
+    setSessionId((flow as any).session_id ?? null);
     setNodes(((flow.nodes as unknown) as Node[]) ?? []);
     setEdges(((flow.edges as unknown) as Edge[]) ?? []);
     setSelected(null);
@@ -270,12 +274,8 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
     const nid = `${type}_${Date.now()}`;
     setNodes((nds) => [
       ...nds,
-      {
-        id: nid,
-        type,
-        position: { x: 200 + nds.length * 30, y: 120 + nds.length * 30 },
-        data: { ...meta.defaultData },
-      },
+      { id: nid, type, position: { x: 200 + nds.length * 30, y: 120 + nds.length * 30 },
+        data: JSON.parse(JSON.stringify(meta.defaultData)) },
     ]);
   }
 
@@ -290,12 +290,10 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
   async function save() {
     await saveFn({
       data: {
-        id,
-        name,
-        description: "",
-        active,
+        id, name, description: "", active,
         trigger_type: triggerType,
         trigger_keywords: keywords.split(",").map((s) => s.trim()).filter(Boolean),
+        session_id: sessionId,
         nodes: nodes as any,
         edges: edges as any,
       },
