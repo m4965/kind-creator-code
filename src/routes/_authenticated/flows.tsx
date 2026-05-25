@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -19,6 +19,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { listFlows, getFlow, saveFlow, deleteFlow } from "@/lib/flows.functions";
 import { getSettings, saveSettings } from "@/lib/settings.functions";
+import { listSessions } from "@/lib/sessions.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +33,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { toast } from "sonner";
 import {
   Plus, Trash2, Zap, MessageSquare, Image as ImgIcon, Mic, Video, Brain, CreditCard, GitBranch, Filter,
-  Search, Edit3, ArrowLeft, Bot, Star,
+  Search, Edit3, ArrowLeft, Bot, Star, Upload, X, FileText, Link as LinkIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/flows")({
@@ -41,11 +43,11 @@ export const Route = createFileRoute("/_authenticated/flows")({
 const NODE_TYPES_LIST = [
   { key: "trigger", label: "Gatilho", icon: Zap, color: "bg-amber-500", defaultData: {} },
   { key: "sendText", label: "Enviar texto", icon: MessageSquare, color: "bg-blue-500", defaultData: { text: "Olá!" } },
-  { key: "sendImage", label: "Enviar imagem", icon: ImgIcon, color: "bg-pink-500", defaultData: { url: "", caption: "" } },
-  { key: "sendAudio", label: "Enviar áudio", icon: Mic, color: "bg-purple-500", defaultData: { url: "" } },
-  { key: "sendVideo", label: "Enviar vídeo", icon: Video, color: "bg-red-500", defaultData: { url: "", caption: "" } },
+  { key: "sendImage", label: "Enviar imagem", icon: ImgIcon, color: "bg-pink-500", defaultData: { items: [], caption: "" } },
+  { key: "sendAudio", label: "Enviar áudio", icon: Mic, color: "bg-purple-500", defaultData: { items: [] } },
+  { key: "sendVideo", label: "Enviar vídeo", icon: Video, color: "bg-red-500", defaultData: { items: [], caption: "" } },
   { key: "ai", label: "Resposta IA", icon: Brain, color: "bg-emerald-500", defaultData: { prompt: "" } },
-  { key: "payment", label: "Confirmar pagamento", icon: CreditCard, color: "bg-green-600", defaultData: { pdf_url: "", link: "", success_message: "" } },
+  { key: "payment", label: "Confirmar pagamento", icon: CreditCard, color: "bg-green-600", defaultData: { files: [], links: [], success_message: "" } },
   { key: "condition", label: "Condição", icon: GitBranch, color: "bg-yellow-600", defaultData: { contains: "" } },
   { key: "moveFunnel", label: "Mover no funil", icon: Filter, color: "bg-indigo-500", defaultData: { stage_id: "" } },
 ] as const;
