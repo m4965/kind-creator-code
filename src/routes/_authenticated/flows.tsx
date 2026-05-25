@@ -564,3 +564,96 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
       return null;
   }
 }
+
+type MediaItem = { path: string; name: string };
+
+function MediaUploader({
+  accept, items, onChange, label,
+}: { accept: string; items: MediaItem[]; onChange: (items: MediaItem[]) => void; label: string }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Normalize legacy data: string or single object becomes array
+  const list: MediaItem[] = Array.isArray(items)
+    ? items.map((x: any) => typeof x === "string" ? { path: x, name: x.split("/").pop() ?? x } : x)
+    : [];
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Não autenticado");
+      const uploaded: MediaItem[] = [];
+      for (const file of Array.from(files)) {
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${user.id}/${crypto.randomUUID()}-${safe}`;
+        const { error } = await supabase.storage.from("flow-media").upload(path, file, {
+          contentType: file.type, upsert: false,
+        });
+        if (error) { toast.error(`Falha em ${file.name}: ${error.message}`); continue; }
+        uploaded.push({ path, name: file.name });
+      }
+      if (uploaded.length) onChange([...list, ...uploaded]);
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <input ref={inputRef} type="file" multiple accept={accept} className="hidden"
+        onChange={(e) => handleFiles(e.target.files)} />
+      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+        <Upload className="mr-1 h-4 w-4" />
+        {uploading ? "Enviando..." : "Adicionar arquivos"}
+      </Button>
+      {list.length > 0 && (
+        <ul className="space-y-1">
+          {list.map((it, i) => (
+            <li key={it.path} className="flex items-center gap-2 rounded border border-border bg-muted/30 px-2 py-1 text-xs">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate">{it.name}</span>
+              <button onClick={() => onChange(list.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[10px] text-muted-foreground">Os arquivos ficam no Lovable Cloud (bucket privado). URLs assinadas são geradas só na hora do envio.</p>
+    </div>
+  );
+}
+
+function LinkList({ links, onChange }: { links: string[]; onChange: (v: string[]) => void }) {
+  const arr: string[] = Array.isArray(links) ? links : (links ? [String(links)] : []);
+  const [v, setV] = useState("");
+  return (
+    <div className="space-y-2">
+      <Label>Links de acesso</Label>
+      <div className="flex gap-2">
+        <Input value={v} onChange={(e) => setV(e.target.value)} placeholder="https://..." />
+        <Button type="button" variant="outline" size="sm"
+          onClick={() => { if (v.trim()) { onChange([...arr, v.trim()]); setV(""); } }}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      {arr.length > 0 && (
+        <ul className="space-y-1">
+          {arr.map((l, i) => (
+            <li key={i} className="flex items-center gap-2 rounded border border-border bg-muted/30 px-2 py-1 text-xs">
+              <LinkIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate">{l}</span>
+              <button onClick={() => onChange(arr.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
