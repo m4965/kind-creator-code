@@ -486,20 +486,25 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
         </div>
       );
     case "sendImage":
+      return (
+        <div className="space-y-3">
+          <MediaUploader accept="image/*" items={d.items ?? []} onChange={(items) => onChange({ items })} label="Imagens" />
+          <Label>Legenda</Label>
+          <Input value={d.caption ?? ""} onChange={(e) => onChange({ caption: e.target.value })} />
+        </div>
+      );
     case "sendVideo":
       return (
-        <div className="space-y-2">
-          <Label>URL da mídia</Label>
-          <Input value={d.url ?? ""} onChange={(e) => onChange({ url: e.target.value })} />
+        <div className="space-y-3">
+          <MediaUploader accept="video/*" items={d.items ?? []} onChange={(items) => onChange({ items })} label="Vídeos" />
           <Label>Legenda</Label>
           <Input value={d.caption ?? ""} onChange={(e) => onChange({ caption: e.target.value })} />
         </div>
       );
     case "sendAudio":
       return (
-        <div className="space-y-2">
-          <Label>URL do áudio</Label>
-          <Input value={d.url ?? ""} onChange={(e) => onChange({ url: e.target.value })} />
+        <div className="space-y-3">
+          <MediaUploader accept="audio/*" items={d.items ?? []} onChange={(items) => onChange({ items })} label="Áudios" />
         </div>
       );
     case "ai":
@@ -527,9 +532,9 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
       );
     case "payment":
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Quando o contato enviar comprovante, a IA analisa. Se aprovado, envia os arquivos/links abaixo.
+            Quando o contato enviar comprovante, a IA analisa. Se aprovado, envia os arquivos e links abaixo (pode ter vários).
           </p>
           <Label>Mensagem ao aprovar</Label>
           <Textarea
@@ -538,18 +543,13 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
             rows={3}
             placeholder="Pagamento confirmado! Segue o acesso ao seu produto:"
           />
-          <Label>URL do PDF / arquivo</Label>
-          <Input
-            value={d.pdf_url ?? ""}
-            onChange={(e) => onChange({ pdf_url: e.target.value })}
-            placeholder="https://.../arquivo.pdf"
+          <MediaUploader
+            accept=".pdf,application/pdf,image/*,video/*,audio/*,.zip"
+            items={d.files ?? []}
+            onChange={(files) => onChange({ files })}
+            label="Arquivos (PDFs, mídias)"
           />
-          <Label>Link de acesso</Label>
-          <Input
-            value={d.link ?? ""}
-            onChange={(e) => onChange({ link: e.target.value })}
-            placeholder="https://..."
-          />
+          <LinkList links={d.links ?? []} onChange={(links) => onChange({ links })} />
         </div>
       );
     case "moveFunnel":
