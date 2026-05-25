@@ -68,7 +68,7 @@ function SessionsPage() {
           <SessionEditor
             key={editing.id}
             session={editing}
-            onSave={async (patch) => {
+            onSave={async (patch: any) => {
               await saveFn({ data: { ...editing, ...patch } });
               await qc.invalidateQueries({ queryKey: ["sessions"] });
               toast.success("Sessão salva");
