@@ -9,8 +9,9 @@ const FlowSchema = z.object({
   active: z.boolean().default(true),
   trigger_type: z.enum(["keyword", "any"]).default("keyword"),
   trigger_keywords: z.array(z.string().max(100)).max(50).default([]),
-  nodes: z.array(z.any()).default([]),
-  edges: z.array(z.any()).default([]),
+  session_id: z.string().uuid().nullable().optional(),
+  nodes: z.array(z.any()).max(200).default([]),
+  edges: z.array(z.any()).max(500).default([]),
 });
 
 export const listFlows = createServerFn({ method: "GET" })

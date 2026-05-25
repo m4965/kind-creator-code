@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Inbox, GitBranch, Filter, Users, Settings, Zap, LogOut, Sparkles, Star } from "lucide-react";
+import { LayoutDashboard, Inbox, GitBranch, Filter, Users, Settings, Zap, LogOut, Sparkles, Star, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
@@ -17,6 +17,7 @@ const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Inbox", url: "/inbox", icon: Inbox },
   { title: "Fluxos", url: "/flows", icon: GitBranch },
+  { title: "Sessões WhatsApp", url: "/sessions", icon: Smartphone },
   { title: "Respostas rápidas", url: "/quick-replies", icon: Zap },
   { title: "Funil", url: "/funnel", icon: Filter },
   { title: "Leads Qualificados", url: "/leads", icon: Star },
