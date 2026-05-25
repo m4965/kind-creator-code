@@ -324,6 +324,15 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
             className="max-w-sm"
           />
         )}
+        <Select value={sessionId ?? "none"} onValueChange={(v) => setSessionId(v === "none" ? null : v)}>
+          <SelectTrigger className="w-56"><SelectValue placeholder="Sessão WhatsApp" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Todas as sessões</SelectItem>
+            {(sessions ?? []).map((s: any) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="ml-auto flex items-center gap-3">
           <AgentSheet />
           <Label className="flex items-center gap-2 text-sm">
