@@ -1,18 +1,11 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { evoSendText, evoSendMedia, evoSendAudio } from "./evolution.server";
+import { waSendText, waSendMedia, resolveMedia, type WaSession } from "./wa.server";
 import { groqChat, groqVision } from "./groq.server";
 
-export type FlowNode = {
-  id: string;
-  type: string;
-  data: Record<string, unknown>;
-};
+export type FlowNode = { id: string; type: string; data: Record<string, unknown> };
 export type FlowEdge = { id: string; source: string; target: string; sourceHandle?: string | null };
 
-type Settings = {
-  evolution_url: string;
-  evolution_instance: string;
-  evolution_key: string;
+type AiSettings = {
   groq_key: string;
   groq_model: string;
   groq_vision_model: string;
@@ -27,12 +20,9 @@ type Ctx = {
   messageType: string;
   messageContent: string;
   mediaUrl: string | null;
-  settings: Settings;
+  session: WaSession;
+  ai: AiSettings;
 };
-
-async function findStart(nodes: FlowNode[]): Promise<FlowNode | undefined> {
-  return nodes.find((n) => n.type === "trigger");
-}
 
 function nextNodes(current: string, edges: FlowEdge[], handle?: string | null): string[] {
   return edges
@@ -45,9 +35,7 @@ async function saveAssistant(ctx: Ctx, content: string, type: "text" | "image" |
     user_id: ctx.userId,
     conversation_id: ctx.conversationId,
     role: "assistant",
-    type,
-    content,
-    media_url: mediaUrl,
+    type, content, media_url: mediaUrl,
   });
 }
 
@@ -58,122 +46,120 @@ async function getHistory(conversationId: string, limit = 15) {
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: false })
     .limit(limit);
-  return (data ?? [])
-    .reverse()
-    .map((m) => ({
-      role: m.role === "user" ? "user" : "assistant",
-      content: m.transcript || m.content || `[${m.type}]`,
-    }));
+  return (data ?? []).reverse().map((m) => ({
+    role: m.role === "user" ? "user" : "assistant",
+    content: m.transcript || m.content || `[${m.type}]`,
+  }));
+}
+
+// Normalize an arbitrary node field into a list of media items.
+// Accepts: string (single url/path), array of strings, array of {path,url,name}.
+function asMediaList(v: unknown): Array<string | { path?: string; url?: string; name?: string }> {
+  if (!v) return [];
+  if (Array.isArray(v)) return v as any;
+  if (typeof v === "string" && v.trim()) return [v];
+  return [];
 }
 
 export async function runFlow(flow: { nodes: FlowNode[]; edges: FlowEdge[] }, ctx: Ctx) {
-  const start = await findStart(flow.nodes);
+  const start = flow.nodes.find((n) => n.type === "trigger");
   if (!start) return;
-
   const visited = new Set<string>();
-  let queue: Array<{ id: string; handle?: string | null }> = nextNodes(start.id, flow.edges).map(
-    (id) => ({ id }),
-  );
-
+  const queue: Array<{ id: string }> = nextNodes(start.id, flow.edges).map((id) => ({ id }));
   while (queue.length) {
     const { id } = queue.shift()!;
     if (visited.has(id)) continue;
     visited.add(id);
     const node = flow.nodes.find((n) => n.id === id);
     if (!node) continue;
-
     let handle: string | null = null;
-    try {
-      handle = await runNode(node, ctx);
-    } catch (e) {
-      console.error("node error", node.type, e);
-    }
-
+    try { handle = await runNode(node, ctx); } catch (e) { console.error("node", node.type, e); }
     for (const nxt of nextNodes(id, flow.edges, handle)) queue.push({ id: nxt });
   }
 }
 
+async function sendMediaList(
+  ctx: Ctx, kind: "image" | "video" | "audio" | "document",
+  list: Array<string | { path?: string; url?: string; name?: string }>,
+  caption?: string,
+) {
+  for (let i = 0; i < list.length; i++) {
+    const url = await resolveMedia(list[i] as any);
+    if (!url) continue;
+    const cap = i === 0 ? caption : undefined;
+    await waSendMedia(ctx.session, ctx.contactPhone, kind, url, cap);
+    await saveAssistant(ctx, cap ?? "", kind, url);
+  }
+}
+
 async function runNode(node: FlowNode, ctx: Ctx): Promise<string | null> {
-  const d = node.data as Record<string, string>;
+  const d = node.data as Record<string, any>;
   switch (node.type) {
     case "sendText": {
-      const text = d.text || "";
-      await evoSendText(ctx.settings, ctx.contactPhone, text);
-      await saveAssistant(ctx, text);
+      const text = String(d.text ?? "");
+      if (text) { await waSendText(ctx.session, ctx.contactPhone, text); await saveAssistant(ctx, text); }
       return null;
     }
     case "sendImage": {
-      await evoSendMedia(ctx.settings, ctx.contactPhone, "image", d.url, d.caption);
-      await saveAssistant(ctx, d.caption || "", "image", d.url);
+      const list = asMediaList(d.items ?? d.urls ?? d.url);
+      await sendMediaList(ctx, "image", list, d.caption);
       return null;
     }
     case "sendVideo": {
-      await evoSendMedia(ctx.settings, ctx.contactPhone, "video", d.url, d.caption);
-      await saveAssistant(ctx, d.caption || "", "video", d.url);
+      const list = asMediaList(d.items ?? d.urls ?? d.url);
+      await sendMediaList(ctx, "video", list, d.caption);
       return null;
     }
     case "sendAudio": {
-      await evoSendAudio(ctx.settings, ctx.contactPhone, d.url);
-      await saveAssistant(ctx, "", "audio", d.url);
+      const list = asMediaList(d.items ?? d.urls ?? d.url);
+      await sendMediaList(ctx, "audio", list);
       return null;
     }
     case "ai": {
-      if (!ctx.settings.groq_key) return null;
+      if (!ctx.ai.groq_key) return null;
       const history = await getHistory(ctx.conversationId);
-      const messages = [
-        { role: "system", content: d.prompt || ctx.settings.system_prompt },
+      const reply = await groqChat(ctx.ai.groq_key, ctx.ai.groq_model, [
+        { role: "system", content: d.prompt || ctx.ai.system_prompt },
         ...history,
-      ];
-      const reply = await groqChat(ctx.settings.groq_key, ctx.settings.groq_model, messages);
-      await evoSendText(ctx.settings, ctx.contactPhone, reply);
+      ]);
+      await waSendText(ctx.session, ctx.contactPhone, reply);
       await saveAssistant(ctx, reply);
       return null;
     }
     case "condition": {
       const target = (ctx.messageContent || "").toLowerCase();
-      const term = (d.contains || "").toLowerCase();
+      const term = String(d.contains ?? "").toLowerCase();
       return term && target.includes(term) ? "true" : "false";
     }
     case "payment": {
-      if (!ctx.mediaUrl || !ctx.settings.groq_key) return "rejected";
-      const prompt = `Analise esta imagem que pode ser um comprovante de pagamento (PIX, TED, boleto). Responda APENAS em JSON válido com este formato exato:
-{"is_receipt": true|false, "approved": true|false, "amount": number|null, "date": "YYYY-MM-DD"|null, "bank": "string"|null, "reason": "explicação curta"}
-Considere approved=true somente se: for claramente um comprovante real, tiver valor visível, e parecer legítimo (não rascunho/print de tela suspeito).`;
-      let extracted: Record<string, unknown> = {};
+      if (!ctx.mediaUrl || !ctx.ai.groq_key) return "rejected";
+      const prompt = `Analise se a imagem é um comprovante de pagamento (PIX, TED, boleto). Responda APENAS em JSON:
+{"is_receipt": true|false, "approved": true|false, "amount": number|null, "date": "YYYY-MM-DD"|null, "bank": "string"|null, "reason": "string"}
+approved=true só se for comprovante real, com valor visível, parecendo legítimo.`;
+      let extracted: any = {};
       let approved = false;
       try {
-        const raw = await groqVision(
-          ctx.settings.groq_key,
-          ctx.settings.groq_vision_model,
-          prompt,
-          ctx.mediaUrl,
-        );
+        const raw = await groqVision(ctx.ai.groq_key, ctx.ai.groq_vision_model, prompt, ctx.mediaUrl);
         const m = raw.match(/\{[\s\S]*\}/);
         if (m) extracted = JSON.parse(m[0]);
         approved = !!extracted.approved && !!extracted.is_receipt;
-      } catch (e) {
-        console.error("payment vision", e);
-      }
+      } catch (e) { console.error("payment vision", e); }
       await supabaseAdmin.from("payments").insert({
-        user_id: ctx.userId,
-        conversation_id: ctx.conversationId,
-        message_id: ctx.messageId,
+        user_id: ctx.userId, conversation_id: ctx.conversationId, message_id: ctx.messageId,
         status: approved ? "confirmed" : "rejected",
         amount: typeof extracted.amount === "number" ? extracted.amount : null,
-        extracted: extracted as any,
-        media_url: ctx.mediaUrl,
+        extracted, media_url: ctx.mediaUrl,
       });
       if (approved) {
-        const successMsg = d.success_message || "✅ Pagamento confirmado! Segue o acesso ao seu produto:";
-        await evoSendText(ctx.settings, ctx.contactPhone, successMsg);
-        await saveAssistant(ctx, successMsg);
-        if (d.pdf_url) {
-          await evoSendMedia(ctx.settings, ctx.contactPhone, "document", d.pdf_url, "Seu material");
-          await saveAssistant(ctx, "Seu material", "document", d.pdf_url);
-        }
-        if (d.link) {
-          await evoSendText(ctx.settings, ctx.contactPhone, d.link);
-          await saveAssistant(ctx, d.link);
+        const msg = d.success_message || "✅ Pagamento confirmado! Segue o acesso:";
+        await waSendText(ctx.session, ctx.contactPhone, msg);
+        await saveAssistant(ctx, msg);
+        const files = asMediaList(d.files ?? d.pdfs ?? d.pdf_urls ?? d.pdf_url);
+        await sendMediaList(ctx, "document", files);
+        const links = asMediaList(d.links ?? d.link);
+        for (const l of links) {
+          const url = typeof l === "string" ? l : l.url;
+          if (url) { await waSendText(ctx.session, ctx.contactPhone, url); await saveAssistant(ctx, url); }
         }
       }
       return approved ? "approved" : "rejected";
@@ -182,27 +168,15 @@ Considere approved=true somente se: for claramente um comprovante real, tiver va
       const stageId = d.stage_id;
       if (!stageId) return null;
       const { data: contact } = await supabaseAdmin
-        .from("conversations")
-        .select("contact_id")
-        .eq("id", ctx.conversationId)
-        .maybeSingle();
+        .from("conversations").select("contact_id").eq("id", ctx.conversationId).maybeSingle();
       if (contact?.contact_id) {
         const { data: existing } = await supabaseAdmin
-          .from("leads")
-          .select("id")
-          .eq("contact_id", contact.contact_id)
-          .maybeSingle();
-        if (existing) {
-          await supabaseAdmin.from("leads").update({ stage_id: stageId }).eq("id", existing.id);
-        } else {
-          await supabaseAdmin
-            .from("leads")
-            .insert({ user_id: ctx.userId, contact_id: contact.contact_id, stage_id: stageId });
-        }
+          .from("leads").select("id").eq("contact_id", contact.contact_id).maybeSingle();
+        if (existing) await supabaseAdmin.from("leads").update({ stage_id: stageId }).eq("id", existing.id);
+        else await supabaseAdmin.from("leads").insert({ user_id: ctx.userId, contact_id: contact.contact_id, stage_id: stageId });
       }
       return null;
     }
-    default:
-      return null;
+    default: return null;
   }
 }

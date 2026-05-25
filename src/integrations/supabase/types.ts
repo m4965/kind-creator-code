@@ -100,6 +100,7 @@ export type Database = {
           id: string
           name: string
           nodes: Json
+          session_id: string | null
           trigger_keywords: string[]
           trigger_type: string
           updated_at: string
@@ -113,6 +114,7 @@ export type Database = {
           id?: string
           name: string
           nodes?: Json
+          session_id?: string | null
           trigger_keywords?: string[]
           trigger_type?: string
           updated_at?: string
@@ -126,6 +128,7 @@ export type Database = {
           id?: string
           name?: string
           nodes?: Json
+          session_id?: string | null
           trigger_keywords?: string[]
           trigger_type?: string
           updated_at?: string
@@ -423,6 +426,51 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_sessions: {
+        Row: {
+          active: boolean
+          api_key: string
+          created_at: string
+          id: string
+          instance: string
+          name: string
+          provider: string
+          status: string
+          updated_at: string
+          url: string
+          user_id: string
+          webhook_secret: string
+        }
+        Insert: {
+          active?: boolean
+          api_key?: string
+          created_at?: string
+          id?: string
+          instance?: string
+          name: string
+          provider?: string
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id: string
+          webhook_secret?: string
+        }
+        Update: {
+          active?: boolean
+          api_key?: string
+          created_at?: string
+          id?: string
+          instance?: string
+          name?: string
+          provider?: string
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+          webhook_secret?: string
         }
         Relationships: []
       }

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -19,6 +19,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { listFlows, getFlow, saveFlow, deleteFlow } from "@/lib/flows.functions";
 import { getSettings, saveSettings } from "@/lib/settings.functions";
+import { listSessions } from "@/lib/sessions.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +33,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { toast } from "sonner";
 import {
   Plus, Trash2, Zap, MessageSquare, Image as ImgIcon, Mic, Video, Brain, CreditCard, GitBranch, Filter,
-  Search, Edit3, ArrowLeft, Bot, Star,
+  Search, Edit3, ArrowLeft, Bot, Star, Upload, X, FileText, Link as LinkIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/flows")({
@@ -41,11 +43,11 @@ export const Route = createFileRoute("/_authenticated/flows")({
 const NODE_TYPES_LIST = [
   { key: "trigger", label: "Gatilho", icon: Zap, color: "bg-amber-500", defaultData: {} },
   { key: "sendText", label: "Enviar texto", icon: MessageSquare, color: "bg-blue-500", defaultData: { text: "Olá!" } },
-  { key: "sendImage", label: "Enviar imagem", icon: ImgIcon, color: "bg-pink-500", defaultData: { url: "", caption: "" } },
-  { key: "sendAudio", label: "Enviar áudio", icon: Mic, color: "bg-purple-500", defaultData: { url: "" } },
-  { key: "sendVideo", label: "Enviar vídeo", icon: Video, color: "bg-red-500", defaultData: { url: "", caption: "" } },
+  { key: "sendImage", label: "Enviar imagem", icon: ImgIcon, color: "bg-pink-500", defaultData: { items: [], caption: "" } },
+  { key: "sendAudio", label: "Enviar áudio", icon: Mic, color: "bg-purple-500", defaultData: { items: [] } },
+  { key: "sendVideo", label: "Enviar vídeo", icon: Video, color: "bg-red-500", defaultData: { items: [], caption: "" } },
   { key: "ai", label: "Resposta IA", icon: Brain, color: "bg-emerald-500", defaultData: { prompt: "" } },
-  { key: "payment", label: "Confirmar pagamento", icon: CreditCard, color: "bg-green-600", defaultData: { pdf_url: "", link: "", success_message: "" } },
+  { key: "payment", label: "Confirmar pagamento", icon: CreditCard, color: "bg-green-600", defaultData: { files: [], links: [], success_message: "" } },
   { key: "condition", label: "Condição", icon: GitBranch, color: "bg-yellow-600", defaultData: { contains: "" } },
   { key: "moveFunnel", label: "Mover no funil", icon: Filter, color: "bg-indigo-500", defaultData: { stage_id: "" } },
 ] as const;
@@ -237,12 +239,15 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
   const qc = useQueryClient();
   const getFn = useServerFn(getFlow);
   const saveFn = useServerFn(saveFlow);
+  const listSessFn = useServerFn(listSessions);
   const { data: flow } = useQuery({ queryKey: ["flow", id], queryFn: () => getFn({ data: { id } }) });
+  const { data: sessions } = useQuery({ queryKey: ["sessions"], queryFn: () => listSessFn() });
 
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
   const [triggerType, setTriggerType] = useState<"keyword" | "any">("keyword");
   const [keywords, setKeywords] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selected, setSelected] = useState<Node | null>(null);
@@ -253,6 +258,7 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
     setActive(flow.active);
     setTriggerType((flow.trigger_type as any) ?? "keyword");
     setKeywords((flow.trigger_keywords ?? []).join(", "));
+    setSessionId((flow as any).session_id ?? null);
     setNodes(((flow.nodes as unknown) as Node[]) ?? []);
     setEdges(((flow.edges as unknown) as Edge[]) ?? []);
     setSelected(null);
@@ -268,12 +274,8 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
     const nid = `${type}_${Date.now()}`;
     setNodes((nds) => [
       ...nds,
-      {
-        id: nid,
-        type,
-        position: { x: 200 + nds.length * 30, y: 120 + nds.length * 30 },
-        data: { ...meta.defaultData },
-      },
+      { id: nid, type, position: { x: 200 + nds.length * 30, y: 120 + nds.length * 30 },
+        data: JSON.parse(JSON.stringify(meta.defaultData)) },
     ]);
   }
 
@@ -288,12 +290,10 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
   async function save() {
     await saveFn({
       data: {
-        id,
-        name,
-        description: "",
-        active,
+        id, name, description: "", active,
         trigger_type: triggerType,
         trigger_keywords: keywords.split(",").map((s) => s.trim()).filter(Boolean),
+        session_id: sessionId,
         nodes: nodes as any,
         edges: edges as any,
       },
@@ -324,6 +324,15 @@ function FlowEditor({ id, onBack }: { id: string; onBack: () => void }) {
             className="max-w-sm"
           />
         )}
+        <Select value={sessionId ?? "none"} onValueChange={(v) => setSessionId(v === "none" ? null : v)}>
+          <SelectTrigger className="w-56"><SelectValue placeholder="Sessão WhatsApp" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Todas as sessões</SelectItem>
+            {(sessions ?? []).map((s: any) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="ml-auto flex items-center gap-3">
           <AgentSheet />
           <Label className="flex items-center gap-2 text-sm">
@@ -477,20 +486,25 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
         </div>
       );
     case "sendImage":
+      return (
+        <div className="space-y-3">
+          <MediaUploader accept="image/*" items={d.items ?? []} onChange={(items) => onChange({ items })} label="Imagens" />
+          <Label>Legenda</Label>
+          <Input value={d.caption ?? ""} onChange={(e) => onChange({ caption: e.target.value })} />
+        </div>
+      );
     case "sendVideo":
       return (
-        <div className="space-y-2">
-          <Label>URL da mídia</Label>
-          <Input value={d.url ?? ""} onChange={(e) => onChange({ url: e.target.value })} />
+        <div className="space-y-3">
+          <MediaUploader accept="video/*" items={d.items ?? []} onChange={(items) => onChange({ items })} label="Vídeos" />
           <Label>Legenda</Label>
           <Input value={d.caption ?? ""} onChange={(e) => onChange({ caption: e.target.value })} />
         </div>
       );
     case "sendAudio":
       return (
-        <div className="space-y-2">
-          <Label>URL do áudio</Label>
-          <Input value={d.url ?? ""} onChange={(e) => onChange({ url: e.target.value })} />
+        <div className="space-y-3">
+          <MediaUploader accept="audio/*" items={d.items ?? []} onChange={(items) => onChange({ items })} label="Áudios" />
         </div>
       );
     case "ai":
@@ -518,9 +532,9 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
       );
     case "payment":
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Quando o contato enviar comprovante, a IA analisa. Se aprovado, envia os arquivos/links abaixo.
+            Quando o contato enviar comprovante, a IA analisa. Se aprovado, envia os arquivos e links abaixo (pode ter vários).
           </p>
           <Label>Mensagem ao aprovar</Label>
           <Textarea
@@ -529,18 +543,13 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
             rows={3}
             placeholder="Pagamento confirmado! Segue o acesso ao seu produto:"
           />
-          <Label>URL do PDF / arquivo</Label>
-          <Input
-            value={d.pdf_url ?? ""}
-            onChange={(e) => onChange({ pdf_url: e.target.value })}
-            placeholder="https://.../arquivo.pdf"
+          <MediaUploader
+            accept=".pdf,application/pdf,image/*,video/*,audio/*,.zip"
+            items={d.files ?? []}
+            onChange={(files) => onChange({ files })}
+            label="Arquivos (PDFs, mídias)"
           />
-          <Label>Link de acesso</Label>
-          <Input
-            value={d.link ?? ""}
-            onChange={(e) => onChange({ link: e.target.value })}
-            placeholder="https://..."
-          />
+          <LinkList links={d.links ?? []} onChange={(links) => onChange({ links })} />
         </div>
       );
     case "moveFunnel":
@@ -554,4 +563,97 @@ function NodeEditor({ node, onChange }: { node: Node; onChange: (p: any) => void
     default:
       return null;
   }
+}
+
+type MediaItem = { path: string; name: string };
+
+function MediaUploader({
+  accept, items, onChange, label,
+}: { accept: string; items: MediaItem[]; onChange: (items: MediaItem[]) => void; label: string }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Normalize legacy data: string or single object becomes array
+  const list: MediaItem[] = Array.isArray(items)
+    ? items.map((x: any) => typeof x === "string" ? { path: x, name: x.split("/").pop() ?? x } : x)
+    : [];
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Não autenticado");
+      const uploaded: MediaItem[] = [];
+      for (const file of Array.from(files)) {
+        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${user.id}/${crypto.randomUUID()}-${safe}`;
+        const { error } = await supabase.storage.from("flow-media").upload(path, file, {
+          contentType: file.type, upsert: false,
+        });
+        if (error) { toast.error(`Falha em ${file.name}: ${error.message}`); continue; }
+        uploaded.push({ path, name: file.name });
+      }
+      if (uploaded.length) onChange([...list, ...uploaded]);
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <input ref={inputRef} type="file" multiple accept={accept} className="hidden"
+        onChange={(e) => handleFiles(e.target.files)} />
+      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+        <Upload className="mr-1 h-4 w-4" />
+        {uploading ? "Enviando..." : "Adicionar arquivos"}
+      </Button>
+      {list.length > 0 && (
+        <ul className="space-y-1">
+          {list.map((it, i) => (
+            <li key={it.path} className="flex items-center gap-2 rounded border border-border bg-muted/30 px-2 py-1 text-xs">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate">{it.name}</span>
+              <button onClick={() => onChange(list.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[10px] text-muted-foreground">Os arquivos ficam no Lovable Cloud (bucket privado). URLs assinadas são geradas só na hora do envio.</p>
+    </div>
+  );
+}
+
+function LinkList({ links, onChange }: { links: string[]; onChange: (v: string[]) => void }) {
+  const arr: string[] = Array.isArray(links) ? links : (links ? [String(links)] : []);
+  const [v, setV] = useState("");
+  return (
+    <div className="space-y-2">
+      <Label>Links de acesso</Label>
+      <div className="flex gap-2">
+        <Input value={v} onChange={(e) => setV(e.target.value)} placeholder="https://..." />
+        <Button type="button" variant="outline" size="sm"
+          onClick={() => { if (v.trim()) { onChange([...arr, v.trim()]); setV(""); } }}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      {arr.length > 0 && (
+        <ul className="space-y-1">
+          {arr.map((l, i) => (
+            <li key={i} className="flex items-center gap-2 rounded border border-border bg-muted/30 px-2 py-1 text-xs">
+              <LinkIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate">{l}</span>
+              <button onClick={() => onChange(arr.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
